@@ -201,3 +201,6 @@ a.gm-dead{pointer-events:none;}
 
 /* ссылки всегда поверх дыры: ответ нельзя закрыть */
 body.gm-on main a{position:relative;z-index:8100;}
+
+/* гербы в карточках стран */
+.box img.emblem{display:block;width:100%;height:auto;background:var(--sea);}
