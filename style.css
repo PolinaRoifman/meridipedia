@@ -204,3 +204,8 @@ body.gm-on main a{position:relative;z-index:8100;}
 
 /* гербы в карточках стран */
 .box img.emblem{display:block;width:100%;height:auto;background:var(--sea);}
+
+#sform{margin:0 0 14px;display:flex;gap:8px;}
+#sq{flex:1;max-width:420px;padding:6px 10px;font-size:15px;border:1px solid var(--rule);background:#fff;}
+#sform button{padding:6px 14px;font-size:15px;border:1px solid var(--rule);background:var(--panel);cursor:pointer;}
+#sres .sn{color:#555;font-size:.92em;}

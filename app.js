@@ -4,10 +4,12 @@
   function route(restore){
     var raw=(location.hash||'#home').slice(1).split('/');
     var h=raw[0],sub=raw[1];
+    if(h==='random'){var list=[].filter.call(pages,function(p){return ['home','gone','search'].indexOf(p.id)<0;});var pick=list[Math.floor(Math.random()*list.length)];try{history.replaceState({y:0},'','#'+pick.id);}catch(err){location.hash=pick.id;}h=pick.id;sub=undefined;}
     var found=false;
     pages.forEach(function(p){var on=p.id===h; p.classList.toggle('active',on); if(on)found=true;});
     if(!found){document.getElementById('gone').classList.add('active');}
     if(h==='index')drawChart();
+    if(h==='search'){var q=document.getElementById('sq');if(q&&restore!==true)q.focus();}
     var y=(restore===true&&history.state&&history.state.y)||0;
     window.scrollTo(0,y);
     if(sub){var t=document.getElementById('o-'+sub);if(t){t.scrollIntoView({block:'center'});t.classList.remove('flash');void t.offsetWidth;t.classList.add('flash');}}
@@ -104,5 +106,40 @@
   });
 
   route(false);
+
+  // поиск по статьям
+  (function(){
+    var form=document.getElementById('sform'),inp=document.getElementById('sq'),out=document.getElementById('sres');
+    if(!form)return;
+    function esc(t){return t.replace(/[&<>]/g,function(c){return {'&':'&amp;','<':'&lt;','>':'&gt;'}[c];});}
+    function find(t,q){var i=-1;while((i=t.indexOf(q,i+1))>=0){var L=/[a-zа-я0-9]/;if((i===0||!L.test(t.charAt(i-1)))&&(q.length>4||i+q.length>=t.length||!L.test(t.charAt(i+q.length))))return i;}return -1;}
+    var docs=[];
+    pages.forEach(function(p){
+      if(['search','gone'].indexOf(p.id)>=0)return;
+      var h=p.querySelector('h1');
+      var cl=p.cloneNode(true);cl.querySelectorAll('td,th,li,p,h1,h2,div,tr,br').forEach(function(n){n.appendChild(document.createTextNode(' · '));});
+      docs.push({id:p.id,title:h?h.textContent:p.id,text:cl.textContent.replace(/(\s*·\s*)+/g,' · ').replace(/\s+/g,' ').trim()});
+    });
+    function run(){
+      var q=inp.value.trim().toLowerCase().replace(/ё/g,'е');
+      if(!q){out.innerHTML='';return;}
+      var res=[];
+      docs.forEach(function(d){
+        var tl=d.title.toLowerCase().replace(/ё/g,'е'),xl=d.text.toLowerCase().replace(/ё/g,'е');
+        var inT=find(tl,q)>=0,pos=find(xl,q);
+        if(!inT&&pos<0)return;
+        var cnt=1,from=Math.max(0,pos-60);
+        var snip=d.text.slice(from,pos+q.length+90);
+        res.push({d:d,score:(inT?1000:0)+cnt,snip:(from>0?'… ':'')+snip+' …'});
+      });
+      res.sort(function(a,b){return b.score-a.score;});
+      if(!res.length){out.innerHTML='<p>Ничего не найдено по запросу «'+esc(inp.value.trim())+'».</p>';return;}
+      out.innerHTML='<p>Найдено статей: '+res.length+'.</p>'+res.slice(0,30).map(function(r){
+        return '<p><a href="#'+r.d.id+'"><b>'+esc(r.d.title)+'</b></a><br><span class="sn">'+esc(r.snip)+'</span></p>';
+      }).join('');
+    }
+    form.addEventListener('submit',function(e){e.preventDefault();run();});
+    inp.addEventListener('input',run);
+  })();
 })();
 
