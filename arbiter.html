@@ -1,0 +1,121 @@
+<!doctype html>
+<html lang="ru"><head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Арбитр · терминал делегации</title>
+<style>
+:root{--bg:#0d1510;--fg:#9ef0a8;--dim:#4e7a56;--warn:#f0c04a;--bad:#ff8d7a;--line:#1d3024;}
+*{box-sizing:border-box}
+html,body{margin:0;padding:0;background:var(--bg);color:var(--fg);font-family:"Courier New",Courier,monospace;min-height:100%}
+body{padding:16px;max-width:900px;margin:0 auto}
+.scan{position:fixed;inset:0;pointer-events:none;z-index:9;background:repeating-linear-gradient(to bottom,rgba(0,0,0,.18) 0 1px,transparent 1px 3px)}
+h1{font-size:18px;letter-spacing:2px;margin:0 0 2px;text-transform:uppercase}
+.sub{color:var(--dim);font-size:13px;margin-bottom:14px;border-bottom:1px solid var(--line);padding-bottom:10px}
+.keyp{border:1px solid var(--line);background:#101c14;padding:14px;margin-bottom:14px}
+.lab{color:var(--dim);font-size:12px;letter-spacing:1px;text-transform:uppercase}
+input{width:100%;margin-top:8px;padding:14px;font:inherit;font-size:24px;letter-spacing:10px;text-align:center;
+ background:#0a110c;color:var(--fg);border:1px solid var(--fg)}
+.row{display:flex;gap:14px;flex-wrap:wrap}
+.card{flex:1 1 320px;border:1px solid var(--line);padding:14px;background:#101c14}
+.big{font-size:30px;margin:8px 0;letter-spacing:1px}
+button{width:100%;padding:16px;margin-top:10px;font:inherit;font-size:15px;cursor:pointer;
+ background:#14271a;color:var(--fg);border:1px solid var(--fg);letter-spacing:1px;text-transform:uppercase}
+button:hover{background:#1d3a26} button:active{background:var(--fg);color:#0d1510}
+.rev{color:var(--bad)} .ok{color:var(--fg)}
+.bar{height:8px;border:1px solid var(--line);margin-top:8px;background:#0a110c}
+.bar i{display:block;height:100%;background:var(--fg);width:0}
+#msg{margin-top:12px;padding:10px;border:1px solid var(--line);min-height:20px;font-size:14px;background:#0a110c}
+#log{margin-top:16px;border:1px solid var(--line);padding:10px;background:#0a110c;font-size:12.5px;line-height:1.55;max-height:210px;overflow:auto}
+#log div{color:var(--dim)} #log div b{color:var(--fg);font-weight:normal} #log div.e b{color:var(--bad)}
+.ann{margin-top:16px;border:2px solid var(--warn);color:var(--warn);padding:14px;font-size:15px;line-height:1.5;display:none}
+.foot{color:var(--dim);font-size:11px;margin-top:18px;border-top:1px solid var(--line);padding-top:8px}
+@media(max-width:560px){body{padding:12px}.big{font-size:24px}}
+</style></head>
+<body>
+<div class="scan"></div>
+<h1 id="ttl">Арбитр · терминал делегации</h1>
+<div class="sub">Федерация островов Бордии · Порт-Бордия · режим сессии ООН · ввод по коду</div>
+
+<div class="keyp">
+  <div class="lab">Код доступа (четыре цифры)</div>
+  <input id="code" inputmode="numeric" maxlength="4" autocomplete="off" placeholder="····">
+</div>
+
+<div class="row">
+  <div class="card">
+    <div class="lab">Мандат делегации ФОБ</div>
+    <div class="big" id="mst">—</div>
+    <div class="lab">До истечения: <span id="left">—</span></div>
+    <div class="bar"><i id="pbar"></i></div>
+    <button id="bm">Подтвердить мандат</button>
+  </div>
+  <div class="card">
+    <div class="lab">Обращения избирателей</div>
+    <div class="big"><span id="cnt">0</span> <span style="font-size:16px;color:var(--dim)">из 12</span></div>
+    <div class="lab">Порог пересмотра программы</div>
+    <div class="bar"><i id="cbar"></i></div>
+    <button id="bo">Подать обращение</button>
+  </div>
+</div>
+
+<div id="msg">Введите код доступа и выберите действие.</div>
+
+<div class="ann" id="ann"><b>ПРОГРАММА ПЕРЕСМОТРЕНА.</b><br>
+Принято 12 обращений с узла 2205. Приоритет района Р-7 повышен; программа министра инфраструктуры изменена.<br>
+Основание: программа составляется по обращениям избирателей, по которым принято наибольшее число решений.</div>
+
+<div id="log"></div>
+<div class="foot">Журнал ведётся автоматически. Все обращения к терминалу записываются с указанием времени и узла.</div>
+
+<script>
+(function(){
+  var K='arb67v2', TTL=10*60*1000, GOAL=12, COOL=4*60*1000;
+  var C_MAND='4720', C_NODE='7431', NODE='2205';
+  var S={mand:0,cnt:0,last:0,log:[]};
+  try{var r=localStorage.getItem(K); if(r)S=JSON.parse(r);}catch(e){}
+  if(!S.log)S.log=[];
+  function save(){try{localStorage.setItem(K,JSON.stringify(S));}catch(e){}}
+  function two(n){return(n<10?'0':'')+n}
+  function stamp(t){var d=new Date(t);return two(d.getHours())+':'+two(d.getMinutes())+':'+two(d.getSeconds())}
+  function add(txt,bad){S.log.unshift({t:Date.now(),s:txt,e:!!bad}); if(S.log.length>60)S.log.pop(); save(); draw();}
+  function say(t,bad){var m=document.getElementById('msg');m.textContent=t;m.style.color=bad?'var(--bad)':'var(--fg)';}
+  function code(){var i=document.getElementById('code');var v=i.value.trim();i.value='';return v;}
+  function draw(){
+    var now=Date.now(), left=S.mand? S.mand+TTL-now : -1, el=document.getElementById('mst');
+    if(left>0){ el.textContent='ПОДТВЕРЖДЁН'; el.className='big ok';
+      document.getElementById('left').textContent=Math.floor(left/60000)+' мин '+two(Math.floor(left%60000/1000))+' с';
+      document.getElementById('pbar').style.width=(left/TTL*100)+'%';
+    } else { el.textContent='ОТОЗВАН'; el.className='big rev';
+      document.getElementById('left').textContent='голос делегации не считается';
+      document.getElementById('pbar').style.width='0'; }
+    document.getElementById('cnt').textContent=S.cnt;
+    document.getElementById('cbar').style.width=Math.min(100,S.cnt/GOAL*100)+'%';
+    document.getElementById('ann').style.display=S.cnt>=GOAL?'block':'none';
+    document.getElementById('log').innerHTML=S.log.map(function(e){
+      return '<div'+(e.e?' class="e"':'')+'>'+stamp(e.t)+' &nbsp; <b>'+e.s+'</b></div>';}).join('');
+  }
+  document.getElementById('bm').onclick=function(){
+    var v=code();
+    if(v!==C_MAND){ add('отказано: код не опознан (подтверждение мандата)',1); say('Код не опознан.',1); return; }
+    S.mand=Date.now(); save(); add('мандат делегации ФОБ подтверждён'); say('Мандат подтверждён на 10 минут.');
+  };
+  document.getElementById('bo').onclick=function(){
+    var v=code();
+    if(v!==C_NODE){ add('отказано: узел не опознан (подача обращения)',1); say('Код не опознан.',1); return; }
+    if(S.cnt>=GOAL){ say('Порог уже достигнут.'); return; }
+    var w=S.last+COOL-Date.now();
+    if(w>0){ say('Узел '+NODE+' уже подавал обращение. Следующее через '+Math.ceil(w/60000)+' мин.',1); return; }
+    S.cnt++; S.last=Date.now(); save();
+    add('принято обращение № '+S.cnt+' с узла '+NODE);
+    say('Обращение принято. Следующее можно подать через 4 минуты.');
+    if(S.cnt===GOAL) add('ПРОГРАММА ПЕРЕСМОТРЕНА: приоритет района Р-7 повышен');
+  };
+  var c=0,tm=0;
+  document.getElementById('ttl').onclick=function(){
+    clearTimeout(tm); c++; tm=setTimeout(function(){c=0},900);
+    if(c>=3){c=0; if(confirm('Сбросить терминал?')){S={mand:0,cnt:0,last:0,log:[]};save();draw();say('Терминал сброшен.');}}
+  };
+  draw(); setInterval(draw,1000);
+})();
+</script>
+</body></html>
