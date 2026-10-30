@@ -112,7 +112,7 @@
     var W=640,H=300,L=40,R=16,T=14,Bm=30,max=110;
     function X(y){return L+(W-L-R)*(y-y0)/(y1-y0);}
     function Y(a){return T+(H-T-Bm)*(1-a/max);}
-    var h='<rect x="'+X(1927)+'" y="'+T+'" width="'+(X(1934)-X(1927))+'" height="'+(H-T-Bm)+'" fill="var(--rule)" opacity=".45"/><text x="'+((X(1927)+X(1934))/2)+'" y="'+(T+12)+'" font-size="11" text-anchor="middle" fill="var(--mute)">Большая война</text>';
+    var h='';
     [0,25,50,75,100].forEach(function(g){h+='<line x1="'+L+'" x2="'+(W-R)+'" y1="'+Y(g)+'" y2="'+Y(g)+'" stroke="var(--rule)"/><text x="'+(L-6)+'" y="'+(Y(g)+4)+'" font-size="11" text-anchor="end" fill="var(--mute)">'+g+'</text>';});
     [1925,1935,1945,1955,1965].forEach(function(yr){h+='<text x="'+X(yr)+'" y="'+(H-10)+'" font-size="11" text-anchor="middle" fill="var(--mute)">'+yr+'</text>';});
     var pts=[];for(var y=y0;y<=y1;y++)pts.push(X(y).toFixed(1)+','+Y(v[y]).toFixed(1));
