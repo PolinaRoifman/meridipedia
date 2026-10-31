@@ -1,6 +1,6 @@
 /* Тест знаний «Последняя правка»: демон летает по настоящим страницам Меридипедии */
 (function(){
-  var WIN=8, MAX_ERR=3, GRACE=0;
+  var WIN=8, MAX_ERR=3, GRACE=2200;
   var CLUES={
     map:["Страница с политической, рельефной, климатической картами и картой растительности"],
     timeline:["Перечень событий, на которые чаще всего ссылаются делегации"],
@@ -18,6 +18,7 @@
     space:["Соперничество ФОБ и Амактая за Марс"],
     delay:["Статья о том, как долго идёт радиосигнал до планет"],
     amaktit:["Метеоритный минерал марсианского происхождения"],
+    son:["Обезболивающее из сонной смолы, свободный оборот которого в ФОБ запрещён с 1964 года"],
     plateau:["Возвышенность, занимающая почти весь Амактай"],
     litk:["Торговая компания, которую Устав не принимает в ООН, потому что принимает только государства"],
     outside:["Тринадцать государств, не входящих в ООН, и два района, не принадлежащих никому"],
@@ -111,8 +112,13 @@
     });
   }
   function setHint(t,bad){var h=$('gm-hint');h.textContent=t;h.classList.toggle('bad',!!bad);}
-  function pickQuestion(msg){
+  function pickQuestion(msg,retry){
     var c=candidates();
+    if(!c.length&&!retry){
+      var p=activePage();
+      if(p){delete p.dataset.gm;inkPage(p);collect();}
+      return pickQuestion(msg,1);
+    }
     if(!c.length){targetDest='';$('gm-q').textContent='Все ссылки на странице исчезли';return;}
     var dests=[];c.forEach(function(a){var d=destOf(a);if(dests.indexOf(d)<0)dests.push(d);});
     var seenP={};visited.forEach(function(v){seenP[v]=1;});
@@ -165,19 +171,26 @@
     root.style.setProperty('--gm-x',cx+'px');root.style.setProperty('--gm-y',cy+'px');
     root.style.setProperty('--gm-r',radius+'px');root.style.setProperty('--gm-s',(36+voidLevel*2)+'px');
   }
+  function farChaser(){
+    var w=root.clientWidth||1200,h=root.clientHeight||800;
+    cx=(tx>w/2)?40:w-40; cy=(ty>h/2)?40:h-40; chaserStyle();
+  }
   function resetChaser(){
     var w=root.clientWidth,h=root.clientHeight;
     if(!seen){tx=w*.6;ty=h*.6;}
     cx=Math.max(20,Math.min(w-20,tx-260));cy=Math.max(130,Math.min(h-20,ty+40));
     chaserStyle();
   }
-  function prepare(force){
+  function prepare(force,tries){
     if(!on||ended)return;
     var id=pid(); if(!force&&id===pageId&&glyphs.length)return;
-    var p=activePage(); if(!p)return;
+    var p=activePage();
+    // страница могла ещё не переключиться: ждём, иначе чернила лягут на старую
+    if(!p||p.id!==id){ if((tries||0)<25)setTimeout(function(){prepare(force,(tries||0)+1);},40); return; }
     pageId=id; inkPage(p); collect();
+    if(!p.querySelectorAll('.gm-l').length){ delete p.dataset.gm; inkPage(p); collect(); }
     if(visited[visited.length-1]!==id)visited.push(id);
-    voidLevel=0;wrong=0;grace=0;if(visited.length<=1)resetChaser();
+    voidLevel=0;wrong=0;grace=performance.now()+GRACE;farChaser();
     pickQuestion(); hud();
   }
 
@@ -216,7 +229,8 @@
     if(on&&running&&!ended&&!document.hidden){
       if(performance.now()>=grace){
         var dx=tx-cx,dy=ty-cy,d=Math.hypot(dx,dy);
-        var step=(100+Math.min(correct,8)*8+Math.min(wrong,4)*20)*dt;
+        var warm=Math.min(1,.45+(performance.now()-grace)/4000);
+        var step=(100+Math.min(correct,8)*8+Math.min(wrong,4)*20)*warm*dt;
         if(d>0){var k=Math.min(1,step/d);cx+=dx*k;cy+=dy*k;}
         chaserStyle();
         if(ts-lastMeasure>1500)measure();
@@ -249,7 +263,7 @@
             best.el.style.setProperty('--fx',(cx-r.left)+'px');best.el.style.setProperty('--fy',(cy-r.top)+'px');
             best.el.classList.add('gm-eaten');best.eaten=true;eaten++;
           }
-          voidLevel=Math.min(100,eaten/Math.max(1,Math.min(textCount,200))*100);
+          voidLevel=Math.min(100,eaten/Math.max(1,Math.min(textCount,420))*100);
           // пометить ответ
           if(!targetDest&&glyphs.length&&!candidates().length)finish(false,'links');
           hud();
@@ -281,10 +295,10 @@
     asked[d]=1;correct++;
     if(correct>=WIN){hud();finish(true);return;}
     location.hash='#'+a.getAttribute('href').slice(1);
-    setTimeout(function(){prepare(true);window.scrollTo(0,0);},30);
+    setTimeout(function(){prepare(true,0);window.scrollTo(0,0);},30);
   },true);
-  window.addEventListener('popstate',function(){setTimeout(function(){prepare(false);},30);});
-  window.addEventListener('hashchange',function(){setTimeout(function(){prepare(false);},30);});
+  window.addEventListener('popstate',function(){setTimeout(function(){prepare(false,0);},30);});
+  window.addEventListener('hashchange',function(){setTimeout(function(){prepare(false,0);},30);});
   window.addEventListener('resize',function(){if(on)measure();});
   document.addEventListener('keydown',function(e){if(on&&e.key==='Escape')exit();});
 
